@@ -21,7 +21,7 @@
     padding: 10px; width: 100%; box-sizing: border-box; margin: 10px 0;
     border-radius: 6px; border: 1px solid #223040; background: #131a22; color: #fff;
   }
-  #join button, #adminBtn {
+  #join button, #adminBtn, #playAgainBtn {
     padding: 10px 16px; border-radius: 6px; border: none;
     background: #ffd166; font-weight: bold; cursor: pointer;
   }
@@ -66,28 +66,33 @@
   <div id="teamLabel"></div>
 
   <div id="adminPanel">
-    <b>Host Panel</b><br/>
-    Rows <input id="admRows" type="number" value="16" style="width:50px"/>
-    Columns <input id="admCols" type="number" value="20" style="width:50px"/>
-    Mines <input id="admMines" type="number" value="55" style="width:50px"/>
-    Minutes <input id="admMin"
- type="number" value="8" style="width:50px"/>
-    <button id="adminBtn" onclick="startGame()">Start / Restart Game</button>
+    <b>Host Panel</b>
+    <p style="margin:8px 0;">Resets the global scoreboard back to 0 for everyone.</p>
+    <button id="adminBtn" onclick="resetGlobalScore()">Reset Global Scoreboard</button>
   </div>
 
-  <div id="scoreboard">Red: 0 &nbsp;|&nbsp; Blue: 0</div>
-  <div id="board"></div>
+  <div id="scoreboard">
+    <span class="r">Red: <span id="redScore">0</span></span>
+    <span class="b">Blue: <span id="blueScore">0</span></span>
+  </div>
+
+  <div id="roundIntro">
+    <p id="roundIntroText">Ready for your round? Clear as many safe tiles as you can — hit a mine and it's over.</p>
+    <button id="playAgainBtn" onclick="startRound()">START ROUND</button>
+  </div>
+
+  <div id="roundArea" style="display:none">
+    <div id="personalScore">Your score this round: <span id="roundScoreVal">0</span></div>
+    <div id="boardWrap"><div id="board"></div></div>
+  </div>
+
   <div id="result"></div>
 </div>
 
-<!-- Firebase por CDN, sin instalar nada -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import {
-    getDatabase, ref, set, onValue, runTransaction
-  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
-  // ⬇️⬇️⬇️ PEGÁ ACÁ TU firebaseConfig (te lo da Firebase al crear la app web) ⬇️⬇️⬇️
   const firebaseConfig = {
     apiKey: "AIzaSyCM6PDC1-IVSJVhj8d68uCLF8hedb8IyB8",
     authDomain: "minesweeper-redvsblue.firebaseapp.com",
@@ -97,20 +102,20 @@
     messagingSenderId: "173545402444",
     appId: "1:173545402444:web:fce9ed6048878e08fb84e9"
   };
-  // ⬆️⬆️⬆️ hasta acá ⬆️⬆️⬆️
 
-  // Código simple para ver el panel de organizador: agregá ?admin=1234 a la URL
   const ADMIN_CODE = "1234";
+
+  // 👇 Cambia estos tres números para ajustar la dificultad de cada ronda
+  const ROWS = 12;
+  const COLS = 14;
+  const MINES = 22;
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
-  const gameRef = ref(db, "games/current");
+  const teamScoreRef = ref(db, "teamScores/current");
 
   let myTeam = localStorage.getItem("ms_team");
-  const playerId = localStorage.getItem("ms_id") || crypto.randomUUID();
-  localStorage.setItem("ms_id", playerId);
 
-  // Mostrar panel de admin si la URL tiene ?admin=CODIGO
   const params = new URLSearchParams(location.search);
   if (params.get("admin") === ADMIN_CODE) {
     document.getElementById("adminPanel").style.display = "block";
@@ -124,55 +129,55 @@
       localStorage.setItem("ms_team", myTeam);
     }
     document.getElementById("join").style.display = "none";
-    document.getElementById("game").style.display = "block";
+    document.getElementById("game").style.display = "flex";
     const label = document.getElementById("teamLabel");
     label.textContent = "You're on team " + (myTeam === "red" ? "RED" : "BLUE");
     label.className = myTeam;
   };
 
-    if (localStorage.getItem("ms_name")) {
+  if (localStorage.getItem("ms_name")) {
     joinGame();
   }
 
-  window.startGame = function () {
-    const rows = +document.getElementById("admRows").value;
-    const cols = +document.getElementById("admCols").value;
-    const mines = +document.getElementById("admMines").value;
-    const minutes = +document.getElementById("admMin").value;
-    set(gameRef, {
-      rows, cols, mines,
-      cells: generateBoard(rows, cols, mines),
-      scores: { red: 0, blue: 0 },
-      status: "active",
-      createdAt: Date.now(),
-      durationMs: minutes * 60000
-    });
+  window.resetGlobalScore = function () {
+    set(teamScoreRef, { red: 0, blue: 0 });
   };
 
-  function generateBoard(rows, cols, mineCount) {
-    const size = rows * cols;
-    const cells = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, team: null }));
+  onValue(teamScoreRef, (snap) => {
+    const scores = snap.val() || { red: 0, blue: 0 };
+    document.getElementById("redScore").textContent = scores.red;
+    document.getElementById("blueScore").textContent = scores.blue;
+  });
+
+  // --- Ronda individual: solo el puntaje final se sincroniza con Firebase ---
+  let cells = [];
+  let roundActive = false;
+  let roundScore = 0;
+
+  function generateBoard() {
+    const size = ROWS * COLS;
+    const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false }));
     let placed = 0;
-    while (placed < mineCount) {
+    while (placed < MINES) {
       const idx = Math.floor(Math.random() * size);
-      if (!cells[idx].mine) { cells[idx].mine = true; placed++; }
+      if (!board[idx].mine) { board[idx].mine = true; placed++; }
     }
-    const at = (r, c) => r * cols + c;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      if (cells[at(r, c)].mine) continue;
+    const at = (r, c) => r * COLS + c;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (board[at(r, c)].mine) continue;
       let n = 0;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
         if (!dr && !dc) continue;
         const rr = r + dr, cc = c + dc;
-        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && cells[at(rr, cc)].mine) n++;
+        if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && board[at(rr, cc)].mine) n++;
       }
-      cells[at(r, c)].adjacent = n;
+      board[at(r, c)].adjacent = n;
     }
-    return cells;
+    return board;
   }
 
-  function floodFill(cells, rows, cols, startRow, startCol) {
-    const at = (r, c) => r * cols + c;
+  function floodFill(startRow, startCol) {
+    const at = (r, c) => r * COLS + c;
     const toReveal = new Set();
     const stack = [[startRow, startCol]];
     while (stack.length) {
@@ -184,7 +189,7 @@
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           if (!dr && !dc) continue;
           const rr = r + dr, cc = c + dc;
-          if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+          if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS) {
             const nIdx = at(rr, cc);
             if (!cells[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
           }
@@ -194,64 +199,74 @@
     return toReveal;
   }
 
-  window.revealCell = function (row, col) {
-    if (!myTeam) return;
-    runTransaction(gameRef, (current) => {
-      if (!current || current.status !== "active") return current;
-      const { rows, cols, cells, scores } = current;
-      const idx = row * cols + col;
-      if (!cells || cells[idx].revealed) return current;
-
-      const toReveal = floodFill(cells, rows, cols, row, col);
-      const newCells = cells.slice();
-      let redDelta = 0, blueDelta = 0;
-      toReveal.forEach((i) => {
-        const cell = { ...newCells[i], revealed: true, team: myTeam };
-        newCells[i] = cell;
-        if (cell.mine) { myTeam === "red" ? redDelta-- : blueDelta--; }
-        else { myTeam === "red" ? redDelta++ : blueDelta++; }
-      });
-
-      const newScores = { red: (scores?.red || 0) + redDelta, blue: (scores?.blue || 0) + blueDelta };
-      const remainingSafe = newCells.filter(c => !c.mine && !c.revealed).length;
-
-      return { ...current, cells: newCells, scores: newScores, status: remainingSafe === 0 ? "finished" : "active" };
-    });
+  window.startRound = function () {
+    cells = generateBoard();
+    roundActive = true;
+    roundScore = 0;
+    document.getElementById("roundIntro").style.display = "none";
+    document.getElementById("roundArea").style.display = "block";
+    document.getElementById("result").textContent = "";
+    document.getElementById("roundScoreVal").textContent = "0";
+    renderBoard();
   };
 
-  function render(game) {
+  window.revealCell = function (row, col) {
+    if (!roundActive) return;
+    const idx = row * COLS + col;
+    if (cells[idx].revealed) return;
+
+    const toReveal = floodFill(row, col);
+    let hitMine = false;
+    toReveal.forEach((i) => {
+      cells[i].revealed = true;
+      if (cells[i].mine) hitMine = true;
+      else roundScore++;
+    });
+
+    document.getElementById("roundScoreVal").textContent = roundScore;
+    renderBoard();
+
+    if (hitMine) { endRound(false); return; }
+    const remainingSafe = cells.filter(c => !c.mine && !c.revealed).length;
+    if (remainingSafe === 0) endRound(true);
+  };
+
+  function endRound(won) {
+    roundActive = false;
+    const finalScore = won ? roundScore + 10 : roundScore;
+
+    runTransaction(teamScoreRef, (current) => {
+      const scores = current || { red: 0, blue: 0 };
+      scores[myTeam] = (scores[myTeam] || 0) + finalScore;
+      return scores;
+    });
+
+    const result = document.getElementById("result");
+    result.textContent = won
+      ? `YOU CLEARED THE BOARD! +${finalScore} points for team ${myTeam.toUpperCase()}`
+      : `BOOM! You scored ${finalScore} points for team ${myTeam.toUpperCase()} before hitting a mine.`;
+
+    document.getElementById("roundIntroText").textContent = "Ready for another round?";
+    document.getElementById("roundIntro").style.display = "block";
+    document.getElementById("roundArea").style.display = "none";
+  }
+
+  function renderBoard() {
     const board = document.getElementById("board");
-    document.getElementById("scoreboard").textContent =
-      `Red: ${game.scores?.red ?? 0}  |  Blue: ${game.scores?.blue ?? 0}`;
-    board.style.gridTemplateColumns = `repeat(${game.cols}, 26px)`;
+    board.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
     board.innerHTML = "";
-    for (let r = 0; r < game.rows; r++) {
-      for (let c = 0; c < game.cols; c++) {
-        const cell = game.cells[r * game.cols + c];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = cells[r * COLS + c];
         const btn = document.createElement("button");
-        btn.className = "cell" + (cell.revealed && cell.team ? " " + cell.team : "");
-        btn.disabled = cell.revealed || game.status !== "active";
-        if (cell.revealed) {
-          btn.textContent = cell.mine ? "💥" : (cell.adjacent || "");
-        }
+        btn.className = "cell" + (cell.revealed ? " " + myTeam : "");
+        btn.disabled = cell.revealed || !roundActive;
+        if (cell.revealed) btn.textContent = cell.mine ? "💥" : (cell.adjacent || "");
         btn.onclick = () => revealCell(r, c);
         board.appendChild(btn);
       }
     }
-    const result = document.getElementById("result");
-    if (game.status === "finished") {
-      const r = game.scores.red, b = game.scores.blue;
-      result.textContent = r === b ? "IT'S A TIE!" : `TEAM ${r > b ? "RED" : "BLUE"} WINS!`;
-    } else {
-      result.textContent = "";
-    }
   }
-
-  onValue(gameRef, (snap) => {
-    const game = snap.val();
-    if (game) render(game);
-    else document.getElementById("board").innerHTML = "<p>Waiting for the host to start the game…</p>";
-  });
 </script>
 </body>
 </html>
