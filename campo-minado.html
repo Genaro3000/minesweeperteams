@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Campo Minado: Rojo vs Azul</title>
+<style>
+  body {
+    margin: 0;
+    background: #0b0f14;
+    color: #e6edf3;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 48px;
+  }
+  h1 { text-align: center; }
+  #join { text-align: center; max-width: 400px; }
+  #join input {
+    padding: 10px; width: 100%; box-sizing: border-box; margin: 10px 0;
+    border-radius: 6px; border: 1px solid #223040; background: #131a22; color: #fff;
+  }
+  #join button, #adminBtn {
+    padding: 10px 16px; border-radius: 6px; border: none;
+    background: #ffd166; font-weight: bold; cursor: pointer;
+  }
+  #teamLabel { font-weight: bold; margin-bottom: 12px; }
+  #teamLabel.red { color: #ff4655; }
+  #teamLabel.blue { color: #3da5ff; }
+  #scoreboard { margin-bottom: 12px; font-weight: bold; }
+  #board {
+    display: grid;
+    gap: 2px;
+    background: #223040;
+    border: 1px solid #223040;
+    width: max-content;
+  }
+  .cell {
+    width: 26px; height: 26px;
+    background: #131a22; color: #fff;
+    border: none; font-weight: bold; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .cell:disabled { cursor: default; }
+  .cell.red { box-shadow: inset 0 0 0 2px #ff4655; }
+  .cell.blue { box-shadow: inset 0 0 0 2px #3da5ff; }
+  #adminPanel { margin-bottom: 16px; display: none; }
+  #result { font-size: 22px; font-weight: bold; color: #ffd166; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<h1>💣 CAMPO MINADO: ROJO vs AZUL</h1>
+
+<!-- Pantalla para unirse -->
+<div id="join">
+  <p>Te toca un equipo al azar. Celda segura = +1 punto. Mina = -1 punto.</p>
+  <input id="nameInput" placeholder="Tu nombre de Discord" maxlength="24" />
+  <button onclick="joinGame()">UNIRME A LA PARTIDA</button>
+</div>
+
+<!-- Juego (oculto hasta que te unís) -->
+<div id="game" style="display:none">
+  <div id="teamLabel"></div>
+
+  <div id="adminPanel">
+    <b>Panel organizador</b><br/>
+    Filas <input id="admRows" type="number" value="16" style="width:50px"/>
+    Columnas <input id="admCols" type="number" value="20" style="width:50px"/>
+    Minas <input id="admMines" type="number" value="55" style="width:50px"/>
+    Minutos <input id="admMin" type="number" value="8" style="width:50px"/>
+    <button id="adminBtn" onclick="startGame()">Iniciar / reiniciar partida</button>
+  </div>
+
+  <div id="scoreboard">Rojo: 0 &nbsp;|&nbsp; Azul: 0</div>
+  <div id="board"></div>
+  <div id="result"></div>
+</div>
+
+<!-- Firebase por CDN, sin instalar nada -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import {
+    getDatabase, ref, set, onValue, runTransaction
+  } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  // ⬇️⬇️⬇️ PEGÁ ACÁ TU firebaseConfig (te lo da Firebase al crear la app web) ⬇️⬇️⬇️
+  const firebaseConfig = {
+    apiKey: "AIzaSyCM6PDC1-IVSJVhj8d68uCLF8hedb8IyB8",
+    authDomain: "minesweeper-redvsblue.firebaseapp.com",
+    databaseURL: "https://minesweeper-redvsblue-default-rtdb.firebaseio.com",
+    projectId: "minesweeper-redvsblue",
+    storageBucket: "minesweeper-redvsblue.firebasestorage.app",
+    messagingSenderId: "173545402444",
+    appId: "1:173545402444:web:fce9ed6048878e08fb84e9"
+  };
+  // ⬆️⬆️⬆️ hasta acá ⬆️⬆️⬆️
+
+  // Código simple para ver el panel de organizador: agregá ?admin=1234 a la URL
+  const ADMIN_CODE = "1234";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const gameRef = ref(db, "games/current");
+
+  let myTeam = localStorage.getItem("ms_team");
+  const playerId = localStorage.getItem("ms_id") || crypto.randomUUID();
+  localStorage.setItem("ms_id", playerId);
+
+  // Mostrar panel de admin si la URL tiene ?admin=CODIGO
+  const params = new URLSearchParams(location.search);
+  if (params.get("admin") === ADMIN_CODE) {
+    document.getElementById("adminPanel").style.display = "block";
+  }
+
+  window.joinGame = function () {
+    if (!myTeam) {
+      myTeam = Math.random() < 0.5 ? "red" : "blue";
+      localStorage.setItem("ms_team", myTeam);
+    }
+    document.getElementById("join").style.display = "none";
+    document.getElementById("game").style.display = "block";
+    const label = document.getElementById("teamLabel");
+    label.textContent = "Jugás por el equipo " + (myTeam === "red" ? "ROJO" : "AZUL");
+    label.className = myTeam;
+  };
+
+  window.startGame = function () {
+    const rows = +document.getElementById("admRows").value;
+    const cols = +document.getElementById("admCols").value;
+    const mines = +document.getElementById("admMines").value;
+    const minutes = +document.getElementById("admMin").value;
+    set(gameRef, {
+      rows, cols, mines,
+      cells: generateBoard(rows, cols, mines),
+      scores: { red: 0, blue: 0 },
+      status: "active",
+      createdAt: Date.now(),
+      durationMs: minutes * 60000
+    });
+  };
+
+  function generateBoard(rows, cols, mineCount) {
+    const size = rows * cols;
+    const cells = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, team: null }));
+    let placed = 0;
+    while (placed < mineCount) {
+      const idx = Math.floor(Math.random() * size);
+      if (!cells[idx].mine) { cells[idx].mine = true; placed++; }
+    }
+    const at = (r, c) => r * cols + c;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      if (cells[at(r, c)].mine) continue;
+      let n = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        if (!dr && !dc) continue;
+        const rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && cells[at(rr, cc)].mine) n++;
+      }
+      cells[at(r, c)].adjacent = n;
+    }
+    return cells;
+  }
+
+  function floodFill(cells, rows, cols, startRow, startCol) {
+    const at = (r, c) => r * cols + c;
+    const toReveal = new Set();
+    const stack = [[startRow, startCol]];
+    while (stack.length) {
+      const [r, c] = stack.pop();
+      const idx = at(r, c);
+      if (toReveal.has(idx) || cells[idx].revealed) continue;
+      toReveal.add(idx);
+      if (cells[idx].adjacent === 0 && !cells[idx].mine) {
+        for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          const rr = r + dr, cc = c + dc;
+          if (rr >= 0 && rr < rows && cc >= 0 && cc < cols) {
+            const nIdx = at(rr, cc);
+            if (!cells[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
+          }
+        }
+      }
+    }
+    return toReveal;
+  }
+
+  window.revealCell = function (row, col) {
+    if (!myTeam) return;
+    runTransaction(gameRef, (current) => {
+      if (!current || current.status !== "active") return current;
+      const { rows, cols, cells, scores } = current;
+      const idx = row * cols + col;
+      if (!cells || cells[idx].revealed) return current;
+
+      const toReveal = floodFill(cells, rows, cols, row, col);
+      const newCells = cells.slice();
+      let redDelta = 0, blueDelta = 0;
+      toReveal.forEach((i) => {
+        const cell = { ...newCells[i], revealed: true, team: myTeam };
+        newCells[i] = cell;
+        if (cell.mine) { myTeam === "red" ? redDelta-- : blueDelta--; }
+        else { myTeam === "red" ? redDelta++ : blueDelta++; }
+      });
+
+      const newScores = { red: (scores?.red || 0) + redDelta, blue: (scores?.blue || 0) + blueDelta };
+      const remainingSafe = newCells.filter(c => !c.mine && !c.revealed).length;
+
+      return { ...current, cells: newCells, scores: newScores, status: remainingSafe === 0 ? "finished" : "active" };
+    });
+  };
+
+  function render(game) {
+    const board = document.getElementById("board");
+    document.getElementById("scoreboard").textContent =
+      `Rojo: ${game.scores?.red ?? 0}  |  Azul: ${game.scores?.blue ?? 0}`;
+    board.style.gridTemplateColumns = `repeat(${game.cols}, 26px)`;
+    board.innerHTML = "";
+    for (let r = 0; r < game.rows; r++) {
+      for (let c = 0; c < game.cols; c++) {
+        const cell = game.cells[r * game.cols + c];
+        const btn = document.createElement("button");
+        btn.className = "cell" + (cell.revealed && cell.team ? " " + cell.team : "");
+        btn.disabled = cell.revealed || game.status !== "active";
+        if (cell.revealed) {
+          btn.textContent = cell.mine ? "💥" : (cell.adjacent || "");
+        }
+        btn.onclick = () => revealCell(r, c);
+        board.appendChild(btn);
+      }
+    }
+    const result = document.getElementById("result");
+    if (game.status === "finished") {
+      const r = game.scores.red, b = game.scores.blue;
+      result.textContent = r === b ? "¡EMPATE!" : `¡GANÓ EL EQUIPO ${r > b ? "ROJO" : "AZUL"}!`;
+    } else {
+      result.textContent = "";
+    }
+  }
+
+  onValue(gameRef, (snap) => {
+    const game = snap.val();
+    if (game) render(game);
+    else document.getElementById("board").innerHTML = "<p>Esperando a que el organizador inicie la partida…</p>";
+  });
+</script>
+</body>
+</html>
