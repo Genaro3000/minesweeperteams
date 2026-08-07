@@ -117,6 +117,8 @@
   }
 
   window.joinGame = function () {
+    const name = document.getElementById("nameInput").value.trim();
+    if (name) localStorage.setItem("ms_name", name);
     if (!myTeam) {
       myTeam = Math.random() < 0.5 ? "red" : "blue";
       localStorage.setItem("ms_team", myTeam);
@@ -127,6 +129,10 @@
     label.textContent = "You're on team " + (myTeam === "red" ? "RED" : "BLUE");
     label.className = myTeam;
   };
+
+    if (localStorage.getItem("ms_name")) {
+    joinGame();
+  }
 
   window.startGame = function () {
     const rows = +document.getElementById("admRows").value;
