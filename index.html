@@ -7,7 +7,7 @@
 <style>
   body {
     margin: 0;
-    background: #0b0f14;
+    background: #393d42;
     color: #e6edf3;
     font-family: system-ui, sans-serif;
     display: flex;
@@ -52,13 +52,13 @@
 </head>
 <body>
 
-<h1>💣 CAMPO MINADO: ROJO vs AZUL</h1>
+<h1>💣 MINESWEEPER: RED vs BLUE</h1>
 
 <!-- Pantalla para unirse -->
 <div id="join">
-  <p>Te toca un equipo al azar. Celda segura = +1 punto. Mina = -1 punto.</p>
-  <input id="nameInput" placeholder="Tu nombre de Discord" maxlength="24" />
-  <button onclick="joinGame()">UNIRME A LA PARTIDA</button>
+  <p>You'll get a random team. Safe tile = +1 point. Mine = -1 point.</p>
+  <input id="nameInput" placeholder="Your Discord name" maxlength="24" />
+  <button onclick="joinGame()">JOIN GAME</button>
 </div>
 
 <!-- Juego (oculto hasta que te unís) -->
@@ -66,15 +66,16 @@
   <div id="teamLabel"></div>
 
   <div id="adminPanel">
-    <b>Panel organizador</b><br/>
-    Filas <input id="admRows" type="number" value="16" style="width:50px"/>
-    Columnas <input id="admCols" type="number" value="20" style="width:50px"/>
-    Minas <input id="admMines" type="number" value="55" style="width:50px"/>
-    Minutos <input id="admMin" type="number" value="8" style="width:50px"/>
-    <button id="adminBtn" onclick="startGame()">Iniciar / reiniciar partida</button>
+    <b>Host Panel</b><br/>
+    Rows <input id="admRows" type="number" value="16" style="width:50px"/>
+    Columns <input id="admCols" type="number" value="20" style="width:50px"/>
+    Mines <input id="admMines" type="number" value="55" style="width:50px"/>
+    Minutes <input id="admMin"
+ type="number" value="8" style="width:50px"/>
+    <button id="adminBtn" onclick="startGame()">Start / Restart Game</button>
   </div>
 
-  <div id="scoreboard">Rojo: 0 &nbsp;|&nbsp; Azul: 0</div>
+  <div id="scoreboard">Red: 0 &nbsp;|&nbsp; Blue: 0</div>
   <div id="board"></div>
   <div id="result"></div>
 </div>
@@ -123,7 +124,7 @@
     document.getElementById("join").style.display = "none";
     document.getElementById("game").style.display = "block";
     const label = document.getElementById("teamLabel");
-    label.textContent = "Jugás por el equipo " + (myTeam === "red" ? "ROJO" : "AZUL");
+    label.textContent = "You're on team " + (myTeam === "red" ? "RED" : "BLUE");
     label.className = myTeam;
   };
 
@@ -215,7 +216,7 @@
   function render(game) {
     const board = document.getElementById("board");
     document.getElementById("scoreboard").textContent =
-      `Rojo: ${game.scores?.red ?? 0}  |  Azul: ${game.scores?.blue ?? 0}`;
+      `Red: ${game.scores?.red ?? 0}  |  Blue: ${game.scores?.blue ?? 0}`;
     board.style.gridTemplateColumns = `repeat(${game.cols}, 26px)`;
     board.innerHTML = "";
     for (let r = 0; r < game.rows; r++) {
@@ -234,7 +235,7 @@
     const result = document.getElementById("result");
     if (game.status === "finished") {
       const r = game.scores.red, b = game.scores.blue;
-      result.textContent = r === b ? "¡EMPATE!" : `¡GANÓ EL EQUIPO ${r > b ? "ROJO" : "AZUL"}!`;
+      result.textContent = r === b ? "IT'S A TIE!" : `TEAM ${r > b ? "RED" : "BLUE"} WINS!`;
     } else {
       result.textContent = "";
     }
@@ -243,7 +244,7 @@
   onValue(gameRef, (snap) => {
     const game = snap.val();
     if (game) render(game);
-    else document.getElementById("board").innerHTML = "<p>Esperando a que el organizador inicie la partida…</p>";
+    else document.getElementById("board").innerHTML = "<p>Waiting for the host to start the game…</p>";
   });
 </script>
 </body>
