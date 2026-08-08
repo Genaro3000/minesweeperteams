@@ -21,7 +21,7 @@
     padding: 10px; width: 100%; box-sizing: border-box; margin: 10px 0;
     border-radius: 6px; border: 1px solid #223040; background: #131a22; color: #fff;
   }
-  #join button, #adminBtn, #playAgainBtn {
+ #join button, #adminBtn, #playAgainBtn, #flagModeBtn {
     padding: 10px 16px; border-radius: 6px; border: none;
     background: #ffd166; font-weight: bold; cursor: pointer;
   }
@@ -45,7 +45,9 @@
   }
   .cell:disabled { cursor: default; }
   .cell.red { box-shadow: inset 0 0 0 2px #ff4655; }
-  .cell.blue { box-shadow: inset 0 0 0 2px #3da5ff; }
+    .cell.blue { box-shadow: inset 0 0 0 2px var(--blue); }
+  .cell.flagged { background: #4a4030; }
+  #flagModeBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
   #adminPanel { margin-bottom: 16px; display: none; }
   #result { font-size: 22px; font-weight: bold; color: #ffd166; margin-top: 12px; }
 </style>
@@ -82,7 +84,8 @@
   </div>
 
   <div id="roundArea" style="display:none">
-    <div id="personalScore">Your score this round: <span id="roundScoreVal">0</span></div>
+        <div id="personalScore">Your score this round: <span id="roundScoreVal">0</span></div>
+    <button id="flagModeBtn" onclick="toggleFlagMode()">🚩 Switch to Flag</button>
     <div id="boardWrap"><div id="board"></div></div>
   </div>
 
@@ -156,7 +159,7 @@
 
   function generateBoard() {
     const size = ROWS * COLS;
-    const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false }));
+    const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false }));
     let placed = 0;
     while (placed < MINES) {
       const idx = Math.floor(Math.random() * size);
@@ -199,6 +202,24 @@
     return toReveal;
   }
 
+    let flagMode = false;
+  window.toggleFlagMode = function () {
+    flagMode = !flagMode;
+    document.getElementById("flagModeBtn").textContent = flagMode ? "⛏️ Switch to Dig" : "🚩 Switch to Flag";
+  };
+
+  window.cellClick = function (row, col) {
+    if (flagMode) toggleFlag(row, col);
+    else revealCell(row, col);
+  };
+
+  function toggleFlag(row, col) {
+    const idx = row * COLS + col;
+    if (!roundActive || cells[idx].revealed) return;
+    cells[idx].flagged = !cells[idx].flagged;
+    renderBoard();
+  }
+
   window.startRound = function () {
     cells = generateBoard();
     roundActive = true;
@@ -213,7 +234,7 @@
   window.revealCell = function (row, col) {
     if (!roundActive) return;
     const idx = row * COLS + col;
-    if (cells[idx].revealed) return;
+    if (cells[idx].revealed || cells[idx].flagged) return;
 
     const toReveal = floodFill(row, col);
     let hitMine = false;
@@ -259,10 +280,12 @@
       for (let c = 0; c < COLS; c++) {
         const cell = cells[r * COLS + c];
         const btn = document.createElement("button");
-        btn.className = "cell" + (cell.revealed ? " " + myTeam : "");
+        btn.className = "cell" + (cell.revealed ? " " + myTeam : "") + (cell.flagged ? " flagged" : "");
         btn.disabled = cell.revealed || !roundActive;
         if (cell.revealed) btn.textContent = cell.mine ? "💥" : (cell.adjacent || "");
-        btn.onclick = () => revealCell(r, c);
+        else if (cell.flagged) btn.textContent = "🚩";
+        btn.onclick = () => cellClick(r, c);
+        btn.oncontextmenu = (e) => { e.preventDefault(); toggleFlag(r, c); };
         board.appendChild(btn);
       }
     }
