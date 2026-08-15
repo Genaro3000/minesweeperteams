@@ -21,7 +21,7 @@
     padding: 10px; width: 100%; box-sizing: border-box; margin: 10px 0;
     border-radius: 6px; border: 1px solid #223040; background: var(--bg-deep); color: #fff;
   }
- #join button, #adminBtn, #playAgainBtn, #flagModeBtn {
+  #join button, #adminBtn, #playAgainBtn, #flagModeBtn, #leaderboardBtn {
     padding: 10px 16px; border-radius: 6px; border: none;
     background: #ffd166; font-weight: bold; cursor: pointer;
   }
@@ -49,7 +49,15 @@
   .cell.red { background: var(--bg-deep); box-shadow: inset 0 0 0 2px #FF0000; }
   .cell.blue { background: var(--bg-deep); box-shadow: inset 0 0 0 2px #2a9df5; }
   .cell.flagged { background: #4a4030; }
-  #flagModeBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
+    #flagModeBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
+  #leaderboardBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
+  #leaderboard { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; text-align: left; }
+  .lb-col { background: #45494f; border: 1px solid #55595f; border-radius: 10px; padding: 12px 16px; min-width: 140px; }
+  .lb-title { margin: 0 0 8px; font-size: 14px; }
+  .lb-title.red { color: #ff4655; }
+  .lb-title.blue { color: #3da5ff; }
+  #leaderboard ol { margin: 0; padding-left: 18px; font-size: 13px; }
+  #leaderboard li { margin-bottom: 4px; }
   #adminPanel { margin-bottom: 16px; display: none; }
   #result { font-size: 22px; font-weight: bold; color: #ffd166; margin-top: 12px; }
 </style>
@@ -78,6 +86,19 @@
   <div id="scoreboard">
     <span class="r">Red: <span id="redScore">0</span></span>
     <span class="b">Blue: <span id="blueScore">0</span></span>
+  </div>
+
+  <button id="leaderboardBtn" onclick="toggleLeaderboard()">📋 Show Leaderboard</button>
+
+  <div id="leaderboard" style="display:none">
+    <div class="lb-col">
+      <h3 class="lb-title red">RED</h3>
+      <ol id="lbRed"></ol>
+    </div>
+    <div class="lb-col">
+      <h3 class="lb-title blue">BLUE</h3>
+      <ol id="lbBlue"></ol>
+    </div>
   </div>
 
   <div id="roundIntro">
@@ -138,8 +159,13 @@
       localStorage.setItem("ms_team", myTeam);
     }
     const finalName = localStorage.getItem("ms_name") || "Player";
-    set(ref(db, "players/current/" + playerId), { name: finalName, team: myTeam });
-    document.getElementById("join").style.display = "none";
+    runTransaction(ref(db, "players/current/" + playerId), (current) => {
+      const player = current || { score: 0 };
+      player.name = finalName;
+      player.team = myTeam;
+      if (!player.score) player.score = 0;
+      return player;
+    });    document.getElementById("join").style.display = "none";
     document.getElementById("game").style.display = "flex";
     const label = document.getElementById("teamLabel");
     label.textContent = "You're on team " + (myTeam === "red" ? "RED" : "BLUE");
@@ -159,6 +185,110 @@
     document.getElementById("redScore").textContent = scores.red;
     document.getElementById("blueScore").textContent = scores.blue;
   });
+
+  let leaderboardOpen = false;
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    document.getElementById("leaderboard").style.display = leaderboardOpen ? "flex" : "none";
+    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "📋 Hide Leaderboard" : "📋 Show Leaderboard";
+  };
+
+  onValue(ref(db, "players/current"), (snap) => {
+    const players = snap.val() || {};
+    const list = Object.values(players);
+    const reds = list.filter(p => p.team === "red").sort((a, b) => (b.score || 0) - (a.score || 0));
+    const blues = list.filter(p => p.team === "blue").sort((a, b) => (b.score || 0) - (a.score || 0));
+    renderLbList("lbRed", reds);
+    renderLbList("lbBlue", blues);
+  });
+
+  function renderLbList(elementId, players) {
+    const list = document.getElementById(elementId);
+    list.innerHTML = "";
+    players.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = `${p.name || "Player"} — ${p.score || 0}`;
+      list.appendChild(li);
+    });
+  }
+
+  let leaderboardOpen = false;
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    document.getElementById("leaderboard").style.display = leaderboardOpen ? "flex" : "none";
+    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "📋 Hide Leaderboard" : "📋 Show Leaderboard";
+  };
+
+  onValue(ref(db, "players/current"), (snap) => {
+    const players = snap.val() || {};
+    const list = Object.values(players);
+    const reds = list.filter(p => p.team === "red").sort((a, b) => (b.score || 0) - (a.score || 0));
+    const blues = list.filter(p => p.team === "blue").sort((a, b) => (b.score || 0) - (a.score || 0));
+    renderLbList("lbRed", reds);
+    renderLbList("lbBlue", blues);
+  });
+
+  function renderLbList(elementId, players) {
+    const list = document.getElementById(elementId);
+    list.innerHTML = "";
+    players.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = `${p.name || "Player"} — ${p.score || 0}`;
+      list.appendChild(li);
+    });
+  }
+
+  let leaderboardOpen = false;
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    document.getElementById("leaderboard").style.display = leaderboardOpen ? "flex" : "none";
+    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "📋 Hide Leaderboard" : "📋 Show Leaderboard";
+  };
+
+  onValue(ref(db, "players/current"), (snap) => {
+    const players = snap.val() || {};
+    const list = Object.values(players);
+    const reds = list.filter(p => p.team === "red").sort((a, b) => (b.score || 0) - (a.score || 0));
+    const blues = list.filter(p => p.team === "blue").sort((a, b) => (b.score || 0) - (a.score || 0));
+    renderLbList("lbRed", reds);
+    renderLbList("lbBlue", blues);
+  });
+
+  function renderLbList(elementId, players) {
+    const list = document.getElementById(elementId);
+    list.innerHTML = "";
+    players.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = `${p.name || "Player"} — ${p.score || 0}`;
+      list.appendChild(li);
+    });
+  }
+
+  let leaderboardOpen = false;
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    document.getElementById("leaderboard").style.display = leaderboardOpen ? "flex" : "none";
+    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "📋 Hide Leaderboard" : "📋 Show Leaderboard";
+  };
+
+  onValue(ref(db, "players/current"), (snap) => {
+    const players = snap.val() || {};
+    const list = Object.values(players);
+    const reds = list.filter(p => p.team === "red").sort((a, b) => (b.score || 0) - (a.score || 0));
+    const blues = list.filter(p => p.team === "blue").sort((a, b) => (b.score || 0) - (a.score || 0));
+    renderLbList("lbRed", reds);
+    renderLbList("lbBlue", blues);
+  });
+
+  function renderLbList(elementId, players) {
+    const list = document.getElementById(elementId);
+    list.innerHTML = "";
+    players.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = `${p.name || "Player"} — ${p.score || 0}`;
+      list.appendChild(li);
+    });
+  }
 
   // --- Ronda individual: solo el puntaje final se sincroniza con Firebase ---
   let cells = [];
@@ -268,6 +398,12 @@
       const scores = current || { red: 0, blue: 0 };
       scores[myTeam] = (scores[myTeam] || 0) + finalScore;
       return scores;
+    });
+
+    runTransaction(ref(db, "players/current/" + playerId), (current) => {
+      const player = current || { name: localStorage.getItem("ms_name") || "Player", team: myTeam, score: 0 };
+      player.score = (player.score || 0) + finalScore;
+      return player;
     });
 
     const result = document.getElementById("result");
