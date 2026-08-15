@@ -119,8 +119,12 @@
   const db = getDatabase(app);
   const teamScoreRef = ref(db, "teamScores/current");
 
-  let myTeam = localStorage.getItem("ms_team");
-
+    let myTeam = localStorage.getItem("ms_team");
+  let playerId = localStorage.getItem("ms_id");
+  if (!playerId) {
+    playerId = crypto.randomUUID();
+    localStorage.setItem("ms_id", playerId);
+  }
   const params = new URLSearchParams(location.search);
   if (params.get("admin") === ADMIN_CODE) {
     document.getElementById("adminPanel").style.display = "block";
@@ -133,6 +137,8 @@
       myTeam = Math.random() < 0.5 ? "red" : "blue";
       localStorage.setItem("ms_team", myTeam);
     }
+    const finalName = localStorage.getItem("ms_name") || "Player";
+    set(ref(db, "players/current/" + playerId), { name: finalName, team: myTeam });
     document.getElementById("join").style.display = "none";
     document.getElementById("game").style.display = "flex";
     const label = document.getElementById("teamLabel");
