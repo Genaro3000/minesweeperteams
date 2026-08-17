@@ -151,11 +151,20 @@
     document.getElementById("adminPanel").style.display = "block";
   }
 
-  window.joinGame = function () {
+  window.joinGame = async function () {
     const name = document.getElementById("nameInput").value.trim();
     if (name) localStorage.setItem("ms_name", name);
     if (!myTeam) {
-      myTeam = Math.random() < 0.5 ? "red" : "blue";
+      const snap = await get(ref(db, "players/current"));
+      const players = snap.val() || {};
+      const list = Object.values(players);
+      const redCount = list.filter(p => p.team === "red").length;
+      const blueCount = list.filter(p => p.team === "blue").length;
+      if (redCount === blueCount) {
+        myTeam = Math.random() < 0.5 ? "red" : "blue";
+      } else {
+        myTeam = redCount < blueCount ? "red" : "blue";
+      }
       localStorage.setItem("ms_team", myTeam);
     }
     const finalName = localStorage.getItem("ms_name") || "Player";
