@@ -168,6 +168,33 @@
     return out;
   }
 
+  // Elige posiciones de minas dando más peso a los bordes y casi nada al centro,
+  // asi las "manchas" (zonas vacias que se abren solas) nacen mas en el medio.
+  function pickWeightedMineIndices(count) {
+    const weights = [];
+    const cx = (ROWS - 1) / 2, cy = (COLS - 1) / 2;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const dr = Math.abs(r - cx) / (ROWS / 2);
+        const dc = Math.abs(c - cy) / (COLS / 2);
+        const dist = Math.max(dr, dc);
+        weights.push(0.15 + dist * dist);
+      }
+    }
+    const chosen = new Set();
+    while (chosen.size < count) {
+      let total = 0;
+      for (let i = 0; i < weights.length; i++) if (!chosen.has(i)) total += weights[i];
+      let r = Math.random() * total;
+      for (let i = 0; i < weights.length; i++) {
+        if (chosen.has(i)) continue;
+        r -= weights[i];
+        if (r <= 0) { chosen.add(i); break; }
+      }
+    }
+    return chosen;
+  }
+
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const teamScoreRef = ref(db, "teamScores/current");
@@ -262,10 +289,15 @@
   function generateBoard() {
     const size = ROWS * COLS;
     const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false }));
-    let placed = 0;
-    while (placed < MINES) {
-      const idx = Math.floor(Math.random() * size);
-      if (!board[idx].mine) { board[idx].mine = true; placed++; }
+      if (toroidalMode) {
+      const mineIndices = pickWeightedMineIndices(MINES);
+      mineIndices.forEach((idx) => { board[idx].mine = true; });
+    } else {
+      let placed = 0;
+      while (placed < MINES) {
+        const idx = Math.floor(Math.random() * size);
+        if (!board[idx].mine) { board[idx].mine = true; placed++; }
+      }
     }
     const at = (r, c) => r * COLS + c;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
@@ -298,6 +330,9 @@
   }
 
     let flagMode = false;
+  const FLAG_BONUS = 5; // puntos que ganas cada vez que marcas 3 minas correctamente
+  let correctFlags = 0;
+  let flagMilestonesAwarded = 0;
   window.toggleFlagMode = function () {
     flagMode = !flagMode;
     document.getElementById("flagModeBtn").textContent = flagMode ? "⛏️ Switch to Dig" : "🚩 Switch to Flag";
@@ -312,6 +347,17 @@
     const idx = row * COLS + col;
     if (!roundActive || cells[idx].revealed) return;
     cells[idx].flagged = !cells[idx].flagged;
+
+    if (cells[idx].mine) {
+      correctFlags += cells[idx].flagged ? 1 : -1;
+      const milestones = Math.floor(correctFlags / 3);
+      if (milestones > flagMilestonesAwarded) {
+        roundScore += (milestones - flagMilestonesAwarded) * FLAG_BONUS;
+        flagMilestonesAwarded = milestones;
+        document.getElementById("roundScoreVal").textContent = roundScore;
+      }
+    }
+
     renderBoard();
   }
 
@@ -319,6 +365,8 @@
     cells = generateBoard();
     roundActive = true;
     roundScore = 0;
+    correctFlags = 0;
+    flagMilestonesAwarded = 0;
     document.getElementById("roundIntro").style.display = "none";
     document.getElementById("roundArea").style.display = "block";
     document.getElementById("result").textContent = "";
@@ -349,7 +397,8 @@
 
   function endRound(won) {
     roundActive = false;
-    const finalScore = won ? roundScore + 10 : roundScore;
+    let finalScore = won ? roundScore + 10 : roundScore;
+    if (toroidalMode) finalScore *= 2;
 
     runTransaction(teamScoreRef, (current) => {
       const scores = current || { red: 0, blue: 0 };
