@@ -136,6 +136,32 @@
     appId: "1:173545402444:web:fce9ed6048878e08fb84e9"
   };
 
+  // Si la pagina se abre DENTRO de Discord, hace el "saludo" con el SDK.
+  // Si la abris normal en el navegador (para probar), esto se salta solo.
+  const activityParams = new URLSearchParams(window.location.search);
+  if (activityParams.has("frame_id")) {
+    const { DiscordSDK } = await import("https://esm.sh/@discord/embedded-app-sdk");
+    const discordSdk = new DiscordSDK("1540562395976704062");
+    await discordSdk.ready();
+
+    const { code } = await discordSdk.commands.authorize({
+      client_id: "1540562395976704062",
+      response_type: "code",
+      state: "",
+      prompt: "none",
+      scope: ["identify"]
+    });
+
+    const tokenResponse = await fetch("/api/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code })
+    });
+    const { access_token } = await tokenResponse.json();
+
+    await discordSdk.commands.authenticate({ access_token });
+  }
+
   const ADMIN_CODE = "1234";
 
   // 👇 Cambia estos tres números para ajustar la dificultad de cada ronda
