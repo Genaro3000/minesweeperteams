@@ -1,107 +1,178 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Campo Minado: Rojo vs Azul</title>
+<title>Minesweeper Leaderboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
+  :root {
+    --bg: #13151A;
+    --panel: #1c1f26;
+    --panel-border: #2a2d36;
+    --text: #F1F5F9;
+    --muted: #8b93a1;
+    --gold: #ffd166;
+    --board-bg: #CBD5E1;
+    --board-hover: #F1F5F9;
+    --board-revealed: #334155;
+    --cell: 30px;
+    --font-display: 'Poppins', system-ui, sans-serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
   body {
     margin: 0;
-    background: #393d42;
-    color: #e6edf3;
-    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 12px 48px;
+    padding: 28px 14px 56px;
   }
-  h1 { text-align: center; }
-  #join { text-align: center; max-width: 400px; }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-align: center;
+    font-size: clamp(22px, 5vw, 32px);
+    margin: 0 0 6px;
+  }
+
+  #join {
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 24px 22px;
+    margin-top: 8px;
+  }
+  #join p { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 18px; }
   #join input {
-    padding: 10px; width: 100%; box-sizing: border-box; margin: 10px 0;
-    border-radius: 6px; border: 1px solid #223040; background: var(--bg-deep); color: #fff;
+    padding: 12px 14px;
+    width: 100%;
+    font-size: 15px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    margin-bottom: 14px;
   }
+  #join input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
   #join button, #adminBtn, #playAgainBtn, #flagModeBtn, #leaderboardBtn {
-    padding: 10px 16px; border-radius: 6px; border: none;
-    background: #ffd166; font-weight: bold; cursor: pointer;
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: none;
+    background: var(--gold);
+    color: #2c2200;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+    width: 100%;
   }
-  #teamLabel { font-weight: bold; margin-bottom: 12px; }
-  #teamLabel.red { color: #ff4655; }
-  #teamLabel.blue { color: #3da5ff; }
-  #game { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; gap: 4px; }
-  #scoreboard { margin-bottom: 12px; font-weight: bold; }
-  #boardWrap { display: flex; justify-content: center; width: 100%; }
+
+  #game { display: flex; flex-direction: column; align-items: center; text-align: center; width: 100%; max-width: 900px; gap: 4px; }
+
+  #adminPanel {
+    display: none;
+    width: 100%;
+    max-width: 420px;
+    background: var(--panel);
+    border: 1px dashed var(--panel-border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  #adminPanel b { color: var(--text); font-family: var(--font-display); }
+
+  #leaderboardBtn, #flagModeBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
+
+  #leaderboard {
+    display: none;
+    width: 100%;
+    max-width: 340px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  #leaderboard h3 { margin: 0 0 10px; font-family: var(--font-display); color: var(--gold); font-size: 14px; }
+  #leaderboard ol { margin: 0; padding-left: 20px; font-size: 14px; }
+  #leaderboard li { margin-bottom: 6px; display: flex; justify-content: space-between; gap: 10px; }
+  #leaderboard li span.pts { color: var(--gold); font-weight: 700; }
+
+  #modeSelect { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .mode-btn { padding: 8px 14px; border-radius: 6px; border: 1px solid var(--panel-border); background: var(--panel); color: var(--text); font-weight: bold; cursor: pointer; font-size: 13px; }
+  .mode-btn.mode-active { background: var(--gold); color: #2c2200; border-color: var(--gold); }
+
+  #personalScore { font-family: var(--font-display); font-weight: 700; margin-bottom: 12px; }
+
+  #boardWrap { width: 100%; overflow-x: auto; display: flex; justify-content: center; padding-bottom: 8px; }
   #board {
     display: grid;
-    gap: 2px;
-    background: #223040;
-    border: 1px solid #223040;
+    gap: 3px;
+    background: var(--panel-border);
+    border: 1px solid var(--panel-border);
+    border-radius: 8px;
+    overflow: hidden;
     width: max-content;
   }
   .cell {
-    width: 26px; height: 26px;
-    background: #131a22; color: #fff;
-    border: none; font-weight: bold; font-size: 12px;
+    width: var(--cell); height: var(--cell);
+    background: var(--board-bg);
+    color: #1e293b;
+    border: none;
+    font-weight: 700;
+    font-size: calc(var(--cell) * 0.42);
+    font-family: var(--font-body);
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
+    transition: background 0.12s ease;
   }
+  .cell:hover:not(:disabled) { background: var(--board-hover); }
   .cell:disabled { cursor: default; }
-  .cell.red { background: var(--bg-deep); box-shadow: inset 0 0 0 2px #FF0000; }
-  .cell.blue { background: var(--bg-deep); box-shadow: inset 0 0 0 2px #2a9df5; }
-  .cell.flagged { background: #4a4030; }
-    #flagModeBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
-  #leaderboardBtn { width: auto; padding: 8px 14px; font-size: 13px; margin-bottom: 12px; }
-  #leaderboard { display: flex; gap: 24px; justify-content: center; margin-bottom: 16px; text-align: left; }
-  .lb-col { background: #45494f; border: 1px solid #55595f; border-radius: 10px; padding: 12px 16px; min-width: 140px; }
-  .lb-title { margin: 0 0 8px; font-size: 14px; }
-  .lb-title.red { color: #ff4655; }
-  .lb-title.blue { color: #3da5ff; }
-  #leaderboard ol { margin: 0; padding-left: 18px; font-size: 13px; }
-  #leaderboard li { margin-bottom: 4px; }
-  #modeSelect { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-  .mode-btn { padding: 8px 14px; border-radius: 6px; border: 1px solid #55595f; background: #45494f; color: #e6edf3; font-weight: bold; cursor: pointer; font-size: 13px; }
-  .mode-btn.mode-active { background: #ffd166; color: #2c2200; border-color: #ffd166; }
-  #adminPanel { margin-bottom: 16px; display: none; }
-  #result { font-size: 22px; font-weight: bold; color: #ffd166; margin-top: 12px; }
+  .cell.revealed { background: var(--board-revealed); color: var(--text); }
+  .cell.flagged { background: #f4d35e; }
+
+  #result { font-family: var(--font-display); font-size: clamp(18px, 4vw, 24px); font-weight: 800; color: var(--gold); margin-top: 16px; text-align: center; }
+
+  @media (max-width: 480px) { :root { --cell: 22px; } #join { padding: 20px 16px; } }
 </style>
 </head>
 <body>
 
-<h1>💣 MINESWEEPER: RED vs BLUE</h1>
+<h1>💣 MINESWEEPER LEADERBOARD</h1>
 
-<!-- Pantalla para unirse -->
 <div id="join">
-  <p>You'll get a random team. Safe tile = +1 point. Mine = -1 point.</p>
+  <p>Every safe tile = +1 point. Every mine = -1 point. Your total score climbs the leaderboard.</p>
   <input id="nameInput" placeholder="Your Discord name" maxlength="24" />
   <button onclick="joinGame()">JOIN GAME</button>
 </div>
 
-<!-- Juego (oculto hasta que te unís) -->
 <div id="game" style="display:none">
-  <div id="teamLabel"></div>
 
   <div id="adminPanel">
     <b>Host Panel</b>
-    <p style="margin:8px 0;">Resets the global scoreboard back to 0 for everyone.</p>
-    <button id="adminBtn" onclick="resetGlobalScore()">Reset Global Scoreboard</button>
+    <p style="margin:8px 0;">Wipes the leaderboard back to zero for everyone.</p>
+    <button id="adminBtn" onclick="resetLeaderboard()">Reset Leaderboard</button>
   </div>
 
-  <div id="scoreboard">
-    <span class="r">Red: <span id="redScore">0</span></span>
-    <span class="b">Blue: <span id="blueScore">0</span></span>
-  </div>
+  <button id="leaderboardBtn" onclick="toggleLeaderboard()">🏆 Show Leaderboard</button>
 
-  <button id="leaderboardBtn" onclick="toggleLeaderboard()">📋 Show Leaderboard</button>
-
-  <div id="leaderboard" style="display:none">
-    <div class="lb-col">
-      <h3 class="lb-title red">RED</h3>
-      <ol id="lbRed"></ol>
-    </div>
-    <div class="lb-col">
-      <h3 class="lb-title blue">BLUE</h3>
-      <ol id="lbBlue"></ol>
-    </div>
+  <div id="leaderboard">
+    <h3>TOP 10</h3>
+    <ol id="lbList"></ol>
   </div>
 
   <div id="roundIntro">
@@ -114,7 +185,7 @@
   </div>
 
   <div id="roundArea" style="display:none">
-        <div id="personalScore">Your score this round: <span id="roundScoreVal">0</span></div>
+    <div id="personalScore">Your score this round: <span id="roundScoreVal">0</span></div>
     <button id="flagModeBtn" onclick="toggleFlagMode()">🚩 Switch to Flag</button>
     <div id="boardWrap"><div id="board"></div></div>
   </div>
@@ -124,7 +195,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyCM6PDC1-IVSJVhj8d68uCLF8hedb8IyB8",
@@ -136,32 +207,6 @@
     appId: "1:173545402444:web:fce9ed6048878e08fb84e9"
   };
 
-  // Si la pagina se abre DENTRO de Discord, hace el "saludo" con el SDK.
-  // Si la abris normal en el navegador (para probar), esto se salta solo.
-  const activityParams = new URLSearchParams(window.location.search);
-  if (activityParams.has("frame_id")) {
-    const { DiscordSDK } = await import("https://esm.sh/@discord/embedded-app-sdk");
-    const discordSdk = new DiscordSDK("1540562395976704062");
-    await discordSdk.ready();
-
-    const { code } = await discordSdk.commands.authorize({
-      client_id: "1540562395976704062",
-      response_type: "code",
-      state: "",
-      prompt: "none",
-      scope: ["identify"]
-    });
-
-    const tokenResponse = await fetch("/api/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code })
-    });
-    const { access_token } = await tokenResponse.json();
-
-    await discordSdk.commands.authenticate({ access_token });
-  }
-
   const ADMIN_CODE = "1234";
 
   // 👇 Cambia estos tres números para ajustar la dificultad de cada ronda
@@ -169,6 +214,68 @@
   const COLS = 14;
   const MINES = 22;
 
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const playersRef = ref(db, "players/current");
+
+  let playerId = localStorage.getItem("ms_id");
+  if (!playerId) {
+    playerId = crypto.randomUUID();
+    localStorage.setItem("ms_id", playerId);
+  }
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("admin") === ADMIN_CODE) {
+    document.getElementById("adminPanel").style.display = "block";
+  }
+
+  window.joinGame = function () {
+    const name = document.getElementById("nameInput").value.trim();
+    if (name) localStorage.setItem("ms_name", name);
+    const finalName = localStorage.getItem("ms_name") || "Player";
+
+    runTransaction(ref(db, "players/current/" + playerId), (current) => {
+      const player = current || { score: 0 };
+      player.name = finalName;
+      if (!player.score) player.score = 0;
+      return player;
+    });
+
+    document.getElementById("join").style.display = "none";
+    document.getElementById("game").style.display = "flex";
+  };
+
+  if (localStorage.getItem("ms_name")) {
+    joinGame();
+  }
+
+  window.resetLeaderboard = function () {
+    set(playersRef, {});
+  };
+
+  let leaderboardOpen = false;
+  window.toggleLeaderboard = function () {
+    leaderboardOpen = !leaderboardOpen;
+    document.getElementById("leaderboard").style.display = leaderboardOpen ? "block" : "none";
+    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "🏆 Hide Leaderboard" : "🏆 Show Leaderboard";
+  };
+
+  onValue(playersRef, (snap) => {
+    const players = snap.val() || {};
+    const top10 = Object.values(players)
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 10);
+
+    const list = document.getElementById("lbList");
+    list.innerHTML = "";
+    top10.forEach((p) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${p.name || "Player"}</span><span class="pts">${p.score || 0}</span>`;
+      list.appendChild(li);
+    });
+  });
+
+  // --- Modo toroidal (Expert Mode): bordes conectados + minas mas cerca de los bordes ---
   let toroidalMode = false;
   window.setGameMode = function (mode) {
     toroidalMode = (mode === "expert");
@@ -194,8 +301,6 @@
     return out;
   }
 
-  // Elige posiciones de minas dando más peso a los bordes y casi nada al centro,
-  // asi las "manchas" (zonas vacias que se abren solas) nacen mas en el medio.
   function pickWeightedMineIndices(count) {
     const weights = [];
     const cx = (ROWS - 1) / 2, cy = (COLS - 1) / 2;
@@ -221,93 +326,7 @@
     return chosen;
   }
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const teamScoreRef = ref(db, "teamScores/current");
-
-    let myTeam = localStorage.getItem("ms_team");
-  let playerId = localStorage.getItem("ms_id");
-  if (!playerId) {
-    playerId = crypto.randomUUID();
-    localStorage.setItem("ms_id", playerId);
-  }
-  const params = new URLSearchParams(location.search);
-  if (params.get("admin") === ADMIN_CODE) {
-    document.getElementById("adminPanel").style.display = "block";
-  }
-
-  window.joinGame = async function () {
-    const name = document.getElementById("nameInput").value.trim();
-    if (name) localStorage.setItem("ms_name", name);
-    if (!myTeam) {
-      const snap = await get(ref(db, "players/current"));
-      const players = snap.val() || {};
-      const list = Object.values(players);
-      const redCount = list.filter(p => p.team === "red").length;
-      const blueCount = list.filter(p => p.team === "blue").length;
-      if (redCount === blueCount) {
-        myTeam = Math.random() < 0.5 ? "red" : "blue";
-      } else {
-        myTeam = redCount < blueCount ? "red" : "blue";
-      }
-      localStorage.setItem("ms_team", myTeam);
-    }
-    const finalName = localStorage.getItem("ms_name") || "Player";
-    runTransaction(ref(db, "players/current/" + playerId), (current) => {
-      const player = current || { score: 0 };
-      player.name = finalName;
-      player.team = myTeam;
-      if (!player.score) player.score = 0;
-      return player;
-    });    document.getElementById("join").style.display = "none";
-    document.getElementById("game").style.display = "flex";
-    const label = document.getElementById("teamLabel");
-    label.textContent = "You're on team " + (myTeam === "red" ? "RED" : "BLUE");
-    label.className = myTeam;
-  };
-
-  if (localStorage.getItem("ms_name")) {
-    joinGame();
-  }
-
-  window.resetGlobalScore = function () {
-    set(teamScoreRef, { red: 0, blue: 0 });
-  };
-
-  onValue(teamScoreRef, (snap) => {
-    const scores = snap.val() || { red: 0, blue: 0 };
-    document.getElementById("redScore").textContent = scores.red;
-    document.getElementById("blueScore").textContent = scores.blue;
-  });
-
-  let leaderboardOpen = false;
-  window.toggleLeaderboard = function () {
-    leaderboardOpen = !leaderboardOpen;
-    document.getElementById("leaderboard").style.display = leaderboardOpen ? "flex" : "none";
-    document.getElementById("leaderboardBtn").textContent = leaderboardOpen ? "📋 Hide Leaderboard" : "📋 Show Leaderboard";
-  };
-
-  onValue(ref(db, "players/current"), (snap) => {
-    const players = snap.val() || {};
-    const list = Object.values(players);
-    const reds = list.filter(p => p.team === "red").sort((a, b) => (b.score || 0) - (a.score || 0));
-    const blues = list.filter(p => p.team === "blue").sort((a, b) => (b.score || 0) - (a.score || 0));
-    renderLbList("lbRed", reds);
-    renderLbList("lbBlue", blues);
-  });
-
-  function renderLbList(elementId, players) {
-    const list = document.getElementById(elementId);
-    list.innerHTML = "";
-    players.forEach((p) => {
-      const li = document.createElement("li");
-      li.textContent = `${p.name || "Player"} — ${p.score || 0}`;
-      list.appendChild(li);
-    });
-  }
-
-
-  // --- Ronda individual: solo el puntaje final se sincroniza con Firebase ---
+  // --- Ronda individual ---
   let cells = [];
   let roundActive = false;
   let roundScore = 0;
@@ -315,7 +334,7 @@
   function generateBoard() {
     const size = ROWS * COLS;
     const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false }));
-      if (toroidalMode) {
+    if (toroidalMode) {
       const mineIndices = pickWeightedMineIndices(MINES);
       mineIndices.forEach((idx) => { board[idx].mine = true; });
     } else {
@@ -351,14 +370,16 @@
           const nIdx = at(rr, cc);
           if (!cells[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
         }
-      }    }
+      }
+    }
     return toReveal;
   }
 
-    let flagMode = false;
-  const FLAG_BONUS = 5; // puntos que ganas cada vez que marcas 3 minas correctamente
+  let flagMode = false;
+  const FLAG_BONUS = 5;
   let correctFlags = 0;
   let flagMilestonesAwarded = 0;
+
   window.toggleFlagMode = function () {
     flagMode = !flagMode;
     document.getElementById("flagModeBtn").textContent = flagMode ? "⛏️ Switch to Dig" : "🚩 Switch to Flag";
@@ -383,7 +404,6 @@
         document.getElementById("roundScoreVal").textContent = roundScore;
       }
     }
-
     renderBoard();
   }
 
@@ -426,22 +446,16 @@
     let finalScore = won ? roundScore + 10 : roundScore;
     if (toroidalMode) finalScore *= 2;
 
-    runTransaction(teamScoreRef, (current) => {
-      const scores = current || { red: 0, blue: 0 };
-      scores[myTeam] = (scores[myTeam] || 0) + finalScore;
-      return scores;
-    });
-
     runTransaction(ref(db, "players/current/" + playerId), (current) => {
-      const player = current || { name: localStorage.getItem("ms_name") || "Player", team: myTeam, score: 0 };
+      const player = current || { name: localStorage.getItem("ms_name") || "Player", score: 0 };
       player.score = (player.score || 0) + finalScore;
       return player;
     });
 
     const result = document.getElementById("result");
     result.textContent = won
-      ? `YOU CLEARED THE BOARD! +${finalScore} points for team ${myTeam.toUpperCase()}`
-      : `BOOM! You scored ${finalScore} points for team ${myTeam.toUpperCase()} before hitting a mine.`;
+      ? `YOU CLEARED THE BOARD! +${finalScore} points`
+      : `BOOM! You scored ${finalScore} points before hitting a mine.`;
 
     document.getElementById("roundIntroText").textContent = "Ready for another round?";
     document.getElementById("roundIntro").style.display = "block";
@@ -450,13 +464,13 @@
 
   function renderBoard() {
     const board = document.getElementById("board");
-    board.style.gridTemplateColumns = `repeat(${COLS}, 28px)`;
+    board.style.gridTemplateColumns = `repeat(${COLS}, var(--cell))`;
     board.innerHTML = "";
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const cell = cells[r * COLS + c];
         const btn = document.createElement("button");
-        btn.className = "cell" + (cell.revealed ? " " + myTeam : "") + (cell.flagged ? " flagged" : "");
+        btn.className = "cell" + (cell.revealed ? " revealed" : "") + (cell.flagged ? " flagged" : "");
         btn.disabled = cell.revealed || !roundActive;
         if (cell.revealed) btn.textContent = cell.mine ? "💥" : (cell.adjacent || "");
         else if (cell.flagged) btn.textContent = "🚩";
