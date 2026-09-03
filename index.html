@@ -48,17 +48,23 @@
   #roundIntroText {
     display: inline-block;
     background: repeating-linear-gradient(45deg, #ffd166, #ffd166 12px, #1a1500 12px, #1a1500 24px);
-    color: #ffffff !important;
+    padding: 6px;
+    border-radius: 6px;
+    transform: rotate(-2deg);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    margin-bottom: 14px;
+  }
+  #roundIntroText span {
+    display: block;
+    background: var(--bg);
+    color: #ffffff;
     font-family: var(--font-display);
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.03em;
-    padding: 10px 18px;
-    border-radius: 6px;
-    transform: rotate(-2deg);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    padding: 8px 14px;
+    border-radius: 3px;
     font-size: 13px;
-    margin-bottom: 14px;
   }
 
   #join {
@@ -195,7 +201,7 @@
   </div>
 
   <div id="roundIntro">
-    <p id="roundIntroText">⚠️ Border Alert: Left connects to right, top connects to bottom.</p>
+    <p id="roundIntroText"><span>⚠️ Border Alert: Left connects to right, top connects to bottom.</span></p>
     <div id="modeSelect">
       <button id="modeNormalBtn" class="mode-btn mode-active" onclick="setGameMode('normal')">Normal Mode</button>
       <button id="modeExpertBtn" class="mode-btn" onclick="setGameMode('expert')">Expert Mode ☠️</button>
@@ -572,7 +578,7 @@
       ? `YOU CLEARED THE BOARD! +${finalScore} points`
       : `BOOM! You scored ${finalScore} points before hitting a mine.`;
 
-    document.getElementById("roundIntroText").textContent = "Ready for another round?";
+    document.getElementById("roundIntroText").querySelector("span").textContent = "Ready for another round?";
     document.getElementById("roundIntro").style.display = "block";
     document.getElementById("roundArea").style.display = "none";
   }
