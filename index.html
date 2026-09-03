@@ -32,7 +32,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     padding: 28px 14px 56px;
+  }
+
+  @media (max-width: 480px) {
+    body { justify-content: flex-start; padding-top: 16px; }
   }
   h1 {
     font-family: var(--font-display);
@@ -176,7 +181,7 @@
   </div>
 
   <div id="roundIntro">
-    <p id="roundIntroText">Ready for your round? Clear as many safe tiles as you can — hit a mine and it's over.</p>
+    <p id="roundIntroText">⚠️ Border Alert: Left connects to right, top connects to bottom.</p>
     <div id="modeSelect">
       <button id="modeNormalBtn" class="mode-btn mode-active" onclick="setGameMode('normal')">Normal Mode</button>
       <button id="modeExpertBtn" class="mode-btn" onclick="setGameMode('expert')">Expert Mode ☠️</button>
