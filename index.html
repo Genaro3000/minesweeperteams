@@ -212,7 +212,6 @@
    const ROWS = 12;
   const COLS = 14;
   const MINES = 22;
-  const FLOOD_RADIUS = 2; // 👈 que tan lejos del click se expande la mancha (2 = area chica y prolija)
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
@@ -358,12 +357,7 @@
 
   // Revela en cascada SOBRE UN TABLERO DADO (sirve tanto para el juego real
   // como para las pruebas del solver). Muta el tablero y devuelve los indices nuevos.
-  function torusDist(a, b, size) {
-    const diff = Math.abs(a - b);
-    return toroidalMode ? Math.min(diff, size - diff) : diff;
-  }
-
-  function floodFillOn(board, startRow, startCol, maxRadius = Infinity) {
+  function floodFillOn(board, startRow, startCol) {
     const toReveal = new Set();
     const stack = [[startRow, startCol]];
     while (stack.length) {
@@ -375,10 +369,7 @@
       if (board[idx].adjacent === 0 && !board[idx].mine) {
         for (const [rr, cc] of getNeighbors(r, c)) {
           const nIdx = rr * COLS + cc;
-          const dist = Math.max(torusDist(rr, startRow, ROWS), torusDist(cc, startCol, COLS));
-          if (!board[nIdx].revealed && !toReveal.has(nIdx) && dist <= maxRadius) {
-            stack.push([rr, cc]);
-          }
+          if (!board[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
         }
       }
     }
@@ -529,7 +520,7 @@
     const idx = row * COLS + col;
     if (cells[idx].revealed || cells[idx].flagged) return;
 
-     const toReveal = floodFillOn(cells, row, col, FLOOD_RADIUS);
+     const toReveal = floodFillOn(cells, row, col);
     let hitMine = false;
     toReveal.forEach((i) => {
       cells[i].revealed = true;
