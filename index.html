@@ -508,15 +508,10 @@
     correctFlags = 0;
     flagMilestonesAwarded = 0;
 
-    const openRow = Math.floor(ROWS / 2);
-    const openCol = Math.floor(COLS / 2);
-    const opened = floodFillOn(cells, openRow, openCol);
-    opened.forEach((i) => { if (!cells[i].mine) roundScore++; });
-
     document.getElementById("roundIntro").style.display = "none";
     document.getElementById("roundArea").style.display = "block";
     document.getElementById("result").textContent = "";
-    document.getElementById("roundScoreVal").textContent = roundScore;
+    document.getElementById("roundScoreVal").textContent = "0";
     renderBoard();
   };
 
