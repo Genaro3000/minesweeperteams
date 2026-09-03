@@ -330,7 +330,7 @@
   let roundActive = false;
   let roundScore = 0;
 
-  function generateBoard() {
+  function buildRawBoard() {
     const size = ROWS * COLS;
     const board = Array.from({ length: size }, () => ({ mine: false, adjacent: 0, revealed: false, flagged: false }));
     if (toroidalMode) {
@@ -355,23 +355,118 @@
     return board;
   }
 
-  function floodFill(startRow, startCol) {
-    const at = (r, c) => r * COLS + c;
+  // Revela en cascada SOBRE UN TABLERO DADO (sirve tanto para el juego real
+  // como para las pruebas del solver). Muta el tablero y devuelve los indices nuevos.
+  function floodFillOn(board, startRow, startCol) {
     const toReveal = new Set();
     const stack = [[startRow, startCol]];
     while (stack.length) {
       const [r, c] = stack.pop();
-      const idx = at(r, c);
-      if (toReveal.has(idx) || cells[idx].revealed) continue;
+      const idx = r * COLS + c;
+      if (toReveal.has(idx) || board[idx].revealed) continue;
       toReveal.add(idx);
-      if (cells[idx].adjacent === 0 && !cells[idx].mine) {
+      board[idx].revealed = true;
+      if (board[idx].adjacent === 0 && !board[idx].mine) {
         for (const [rr, cc] of getNeighbors(r, c)) {
-          const nIdx = at(rr, cc);
-          if (!cells[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
+          const nIdx = rr * COLS + cc;
+          if (!board[nIdx].revealed && !toReveal.has(nIdx)) stack.push([rr, cc]);
         }
       }
     }
     return toReveal;
+  }
+
+  // Intenta resolver el tablero SOLO con logica (sin adivinar). Devuelve true
+  // si logra revelar todas las celdas seguras usando deduccion pura.
+  function solveNoGuess(board, startRow, startCol) {
+    const total = ROWS * COLS;
+    const safeTotal = board.filter((c) => !c.mine).length;
+    floodFillOn(board, startRow, startCol);
+
+    function neighborsIdx(idx) {
+      const r = Math.floor(idx / COLS), c = idx % COLS;
+      return getNeighbors(r, c).map(([rr, cc]) => rr * COLS + cc);
+    }
+
+    let progress = true;
+    let guard = 0;
+    while (progress && guard < 40) {
+      progress = false;
+      guard++;
+
+      for (let idx = 0; idx < total; idx++) {
+        const cell = board[idx];
+        if (!cell.revealed || cell.mine) continue;
+        const neighbors = neighborsIdx(idx);
+        const hidden = neighbors.filter((n) => !board[n].revealed && !board[n].flagged);
+        const flaggedCount = neighbors.filter((n) => board[n].flagged).length;
+        if (hidden.length === 0) continue;
+
+        if (flaggedCount === cell.adjacent) {
+          hidden.forEach((n) => {
+            const r = Math.floor(n / COLS), c = n % COLS;
+            if (floodFillOn(board, r, c).size > 0) progress = true;
+          });
+        } else if (cell.adjacent - flaggedCount === hidden.length) {
+          hidden.forEach((n) => {
+            if (!board[n].flagged) { board[n].flagged = true; progress = true; }
+          });
+        }
+      }
+
+      const constraints = [];
+      for (let idx = 0; idx < total; idx++) {
+        const cell = board[idx];
+        if (!cell.revealed || cell.mine) continue;
+        const neighbors = neighborsIdx(idx);
+        const hidden = neighbors.filter((n) => !board[n].revealed && !board[n].flagged);
+        const flaggedCount = neighbors.filter((n) => board[n].flagged).length;
+        if (hidden.length > 0) constraints.push({ hidden: new Set(hidden), need: cell.adjacent - flaggedCount });
+      }
+
+      for (let i = 0; i < constraints.length; i++) {
+        for (let j = 0; j < constraints.length; j++) {
+          if (i === j) continue;
+          const A = constraints[i], B = constraints[j];
+          if (A.hidden.size >= B.hidden.size) continue;
+          let isSubset = true;
+          for (const h of A.hidden) if (!B.hidden.has(h)) { isSubset = false; break; }
+          if (!isSubset) continue;
+
+          const diffCells = [...B.hidden].filter((h) => !A.hidden.has(h));
+          const diffNeed = B.need - A.need;
+
+          if (diffNeed === 0) {
+            diffCells.forEach((n) => {
+              const r = Math.floor(n / COLS), c = n % COLS;
+              if (floodFillOn(board, r, c).size > 0) progress = true;
+            });
+          } else if (diffNeed === diffCells.length) {
+            diffCells.forEach((n) => {
+              if (!board[n].flagged) { board[n].flagged = true; progress = true; }
+            });
+          }
+        }
+      }
+    }
+
+    const revealedSafe = board.filter((c) => !c.mine && c.revealed).length;
+    return revealedSafe === safeTotal;
+  }
+
+  // Genera tableros hasta encontrar uno resoluble sin adivinar (probando desde el centro).
+  function generateSolvableBoard() {
+    const startRow = Math.floor(ROWS / 2);
+    const startCol = Math.floor(COLS / 2);
+    const startIdx = startRow * COLS + startCol;
+
+    for (let attempt = 0; attempt < 150; attempt++) {
+      const board = buildRawBoard();
+      if (board[startIdx].mine) continue;
+      const scratch = board.map((c) => ({ ...c }));
+      if (solveNoGuess(scratch, startRow, startCol)) return board;
+    }
+    return buildRawBoard(); // ultimo recurso, muy poco probable que se use
   }
 
   let flagMode = false;
@@ -407,15 +502,21 @@
   }
 
   window.startRound = function () {
-    cells = generateBoard();
+    cells = generateSolvableBoard();
     roundActive = true;
     roundScore = 0;
     correctFlags = 0;
     flagMilestonesAwarded = 0;
+
+    const openRow = Math.floor(ROWS / 2);
+    const openCol = Math.floor(COLS / 2);
+    const opened = floodFillOn(cells, openRow, openCol);
+    opened.forEach((i) => { if (!cells[i].mine) roundScore++; });
+
     document.getElementById("roundIntro").style.display = "none";
     document.getElementById("roundArea").style.display = "block";
     document.getElementById("result").textContent = "";
-    document.getElementById("roundScoreVal").textContent = "0";
+    document.getElementById("roundScoreVal").textContent = roundScore;
     renderBoard();
   };
 
@@ -424,7 +525,7 @@
     const idx = row * COLS + col;
     if (cells[idx].revealed || cells[idx].flagged) return;
 
-    const toReveal = floodFill(row, col);
+    const toReveal = floodFillOn(cells, row, col);
     let hitMine = false;
     toReveal.forEach((i) => {
       cells[i].revealed = true;
