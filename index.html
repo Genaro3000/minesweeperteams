@@ -36,15 +36,29 @@
     padding: 28px 14px 56px;
   }
 
-  @media (max-width: 480px) {
-    body { justify-content: flex-start; padding-top: 16px; }
-  }
+
   h1 {
     font-family: var(--font-display);
     font-weight: 800;
     text-align: center;
     font-size: clamp(22px, 5vw, 32px);
     margin: 0 0 6px;
+  }
+
+  #roundIntroText {
+    display: inline-block;
+    background: repeating-linear-gradient(45deg, #ffd166, #ffd166 12px, #1a1500 12px, #1a1500 24px);
+    color: #1a1500 !important;
+    font-family: var(--font-display);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 10px 18px;
+    border-radius: 6px;
+    transform: rotate(-2deg);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    font-size: 13px;
+    margin-bottom: 14px;
   }
 
   #join {
